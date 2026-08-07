@@ -8,25 +8,17 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.sxisco.app.core.Key
+import com.sxisco.app.core.Lang
+import com.sxisco.app.core.t
 import com.sxisco.app.ui.theme.SxiscoTextSecondary
 
-/**
- * Ainda nao ligado a um gerenciador de pacotes de verdade (isso e um
- * projeto a parte: precisa de um indice de libs + integracao com
- * dpkg/apt dentro de um userland tipo Termux). Por enquanto so mostra
- * a intencao da tela.
- */
 @Composable
-fun PackagesScreen() {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
-    ) {
-        Text("Packages", style = MaterialTheme.typography.titleLarge)
+fun PackagesScreen(lang: Lang) {
+    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+        Text(t(lang, Key.PACKAGES_TITLE), style = MaterialTheme.typography.titleLarge)
         Text(
-            "Ainda nao conectado a um repositorio de pacotes de verdade. " +
-                "Isso entra numa proxima etapa.",
+            t(lang, Key.PACKAGES_MSG),
             style = MaterialTheme.typography.bodyMedium,
             color = SxiscoTextSecondary,
             modifier = Modifier.padding(top = 8.dp)

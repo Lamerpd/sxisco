@@ -25,12 +25,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
+import com.sxisco.app.core.Key
+import com.sxisco.app.core.Lang
+import com.sxisco.app.core.t
 import com.sxisco.app.data.RunningProcess
 import com.sxisco.app.ui.theme.SxiscoBorder
 import com.sxisco.app.ui.theme.SxiscoTextSecondary
 
 @Composable
 fun HomeScreen(
+    lang: Lang,
     rootGranted: Boolean,
     loading: Boolean,
     processes: List<RunningProcess>,
@@ -49,19 +53,19 @@ fun HomeScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column {
-                Text("Processos", style = MaterialTheme.typography.titleLarge)
+                Text(t(lang, Key.HOME_TITLE), style = MaterialTheme.typography.titleLarge)
                 Text(
                     text = when {
-                        !rootGranted -> "root nao concedido"
-                        loading -> "escaneando..."
-                        else -> "${processes.size} apps em execucao"
+                        !rootGranted -> t(lang, Key.HOME_ROOT_NOT_GRANTED)
+                        loading -> t(lang, Key.HOME_SCANNING)
+                        else -> "${processes.size} ${t(lang, Key.HOME_APPS_RUNNING)}"
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = SxiscoTextSecondary
                 )
             }
             IconButton(onClick = onRefresh, enabled = rootGranted && !loading) {
-                Icon(Icons.Filled.Refresh, contentDescription = "Atualizar")
+                Icon(Icons.Filled.Refresh, contentDescription = null)
             }
         }
 
@@ -69,9 +73,7 @@ fun HomeScreen(
             when {
                 !rootGranted -> {
                     Text(
-                        "Esse app precisa de acesso root pra listar os processos " +
-                            "de outros apps. Aceita o popup do seu gerenciador de " +
-                            "superusuario (Magisk/KernelSU) quando ele aparecer.",
+                        t(lang, Key.HOME_ROOT_MSG),
                         color = SxiscoTextSecondary,
                         style = MaterialTheme.typography.bodyMedium
                     )
@@ -80,7 +82,7 @@ fun HomeScreen(
                     CircularProgressIndicator(modifier = Modifier.padding(24.dp))
                 }
                 processes.isEmpty() -> {
-                    Text("Nenhum processo encontrado.", color = SxiscoTextSecondary)
+                    Text(t(lang, Key.HOME_NO_PROCESSES), color = SxiscoTextSecondary)
                 }
                 else -> {
                     Column(

@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -28,23 +29,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
+import com.sxisco.app.core.Key
+import com.sxisco.app.core.Lang
 import com.sxisco.app.core.RootShell
+import com.sxisco.app.core.t
 import com.sxisco.app.data.RunningProcess
 import com.sxisco.app.ui.theme.SxiscoTextSecondary
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-/**
- * Terminal real: cada comando digitado roda de fato na sessao root
- * (RootShell), com o pid/pacote do app selecionado mostrados no topo
- * como contexto. Nao e um namespace isolado de verdade (Android nao
- * expoe isso facilmente sem ferramentas tipo nsenter compiladas a
- * parte) - e um shell root com foco visual/de contexto naquele app,
- * de onde da pra inspecionar /proc/<pid>, /data/data/<pkg> etc.
- */
 @Composable
 fun TerminalScreen(
+    lang: Lang,
     process: RunningProcess,
     shell: RootShell,
     onBack: () -> Unit
@@ -59,9 +56,18 @@ fun TerminalScreen(
         lines.clear()
         lines.add("sessao escopada: ${process.label} (${process.packageName})")
         withContext(Dispatchers.IO) {
-            shell.exec("echo pid ${process.pid} -- cwd: \$(readlink /proc/${process.pid}/cwd 2>/dev/null)")
+            val script = """
+                cd "${'$'}(readlink -f /proc/${process.pid}/cwd 2>/dev/null)" 2>/dev/null && pwd || (cd /data/data/${process.packageName} 2>/dev/null && pwd) || echo 'nao foi possivel entrar no diretorio do processo'
+            """.trimIndent()
+            shell.exec(script)
         }.let { out ->
             if (out.isNotBlank()) lines.add(out)
+        }
+    }
+
+    LaunchedEffect(lines.size) {
+        if (lines.isNotEmpty()) {
+            listState.animateScrollToItem(lines.size - 1)
         }
     }
 
@@ -85,12 +91,12 @@ fun TerminalScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             TextButton(onClick = onBack) {
-                Text("< voltar")
+                Text(t(lang, Key.TERMINAL_BACK))
             }
             Column(modifier = Modifier.padding(start = 4.dp)) {
                 Text(process.label, style = MaterialTheme.typography.titleMedium)
                 Text(
-                    "pid ${process.pid} - escopado",
+                    "pid ${process.pid} - ${t(lang, Key.TERMINAL_SCOPED)}",
                     style = MaterialTheme.typography.bodySmall,
                     color = SxiscoTextSecondary
                 )
@@ -119,6 +125,7 @@ fun TerminalScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(MaterialTheme.colorScheme.surface)
+                .navigationBarsPadding()
                 .padding(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -126,7 +133,7 @@ fun TerminalScreen(
                 value = input,
                 onValueChange = { input = it },
                 modifier = Modifier.weight(1f),
-                placeholder = { Text("comando root...") },
+                placeholder = { Text(t(lang, Key.TERMINAL_PLACEHOLDER)) },
                 singleLine = true,
                 textStyle = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
@@ -139,7 +146,7 @@ fun TerminalScreen(
                 runCommand(input)
                 input = ""
             }) {
-                Text("Enviar")
+                Text(t(lang, Key.TERMINAL_SEND))
             }
         }
     }

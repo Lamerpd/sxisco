@@ -1,5 +1,6 @@
 package com.sxisco.app
 
+import android.content.Context
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -25,8 +26,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.sxisco.app.core.BackgroundMusicPlayer
+import com.sxisco.app.core.Key
+import com.sxisco.app.core.Lang
 import com.sxisco.app.core.ProcessScanner
 import com.sxisco.app.core.RootShell
+import com.sxisco.app.core.t
 import com.sxisco.app.data.RunningProcess
 import com.sxisco.app.ui.screens.HomeScreen
 import com.sxisco.app.ui.screens.PackagesScreen
@@ -36,6 +40,9 @@ import com.sxisco.app.ui.theme.SxiscoTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+
+private const val PREFS = "sxisco_prefs"
+private const val KEY_LANG = "lang"
 
 class MainActivity : ComponentActivity() {
 
@@ -47,10 +54,21 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         musicPlayer = BackgroundMusicPlayer(this, R.raw.background_music)
         musicPlayer.start()
+
+        val prefs = getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val savedLang = Lang.valueOf(prefs.getString(KEY_LANG, Lang.EN.name) ?: Lang.EN.name)
+
         setContent {
             SxiscoTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
-                    SxiscoApp(shell = rootShell, musicPlayer = musicPlayer)
+                    SxiscoApp(
+                        shell = rootShell,
+                        musicPlayer = musicPlayer,
+                        initialLang = savedLang,
+                        onLanguageChange = { newLang ->
+                            prefs.edit().putString(KEY_LANG, newLang.name).apply()
+                        }
+                    )
                 }
             }
         }
@@ -66,7 +84,13 @@ class MainActivity : ComponentActivity() {
 private enum class Tab { HOME, PACKAGES, SETTINGS }
 
 @Composable
-fun SxiscoApp(shell: RootShell, musicPlayer: BackgroundMusicPlayer) {
+fun SxiscoApp(
+    shell: RootShell,
+    musicPlayer: BackgroundMusicPlayer,
+    initialLang: Lang,
+    onLanguageChange: (Lang) -> Unit
+) {
+    var lang by remember { mutableStateOf(initialLang) }
     var rootGranted by remember { mutableStateOf(false) }
     var rootChecked by remember { mutableStateOf(false) }
     var loading by remember { mutableStateOf(false) }
@@ -104,6 +128,7 @@ fun SxiscoApp(shell: RootShell, musicPlayer: BackgroundMusicPlayer) {
     val current = selectedProcess
     if (current != null) {
         TerminalScreen(
+            lang = lang,
             process = current,
             shell = shell,
             onBack = { selectedProcess = null }
@@ -115,14 +140,22 @@ fun SxiscoApp(shell: RootShell, musicPlayer: BackgroundMusicPlayer) {
         Column(modifier = Modifier.weight(1f)) {
             when (tab) {
                 Tab.HOME -> HomeScreen(
+                    lang = lang,
                     rootGranted = rootGranted,
                     loading = loading || !rootChecked,
                     processes = processes,
                     onRefresh = { refresh() },
                     onOpenProcess = { selectedProcess = it }
                 )
-                Tab.PACKAGES -> PackagesScreen()
-                Tab.SETTINGS -> SettingsScreen(rootGranted = rootGranted)
+                Tab.PACKAGES -> PackagesScreen(lang = lang)
+                Tab.SETTINGS -> SettingsScreen(
+                    lang = lang,
+                    rootGranted = rootGranted,
+                    onLanguageChange = { newLang ->
+                        lang = newLang
+                        onLanguageChange(newLang)
+                    }
+                )
             }
         }
 
@@ -134,19 +167,19 @@ fun SxiscoApp(shell: RootShell, musicPlayer: BackgroundMusicPlayer) {
                 .padding(8.dp)
         ) {
             TextButton(onClick = { tab = Tab.HOME }, modifier = Modifier.weight(1f)) {
-                Text("Processos")
+                Text(t(lang, Key.TAB_PROCESSES))
             }
             TextButton(onClick = { tab = Tab.PACKAGES }, modifier = Modifier.weight(1f)) {
-                Text("Packages")
+                Text(t(lang, Key.TAB_PACKAGES))
             }
             TextButton(onClick = { tab = Tab.SETTINGS }, modifier = Modifier.weight(1f)) {
-                Text("Ajustes")
+                Text(t(lang, Key.TAB_SETTINGS))
             }
             TextButton(onClick = {
                 musicPlayer.toggleMute()
                 muted = musicPlayer.isMuted
             }) {
-                Text(if (muted) "Som: off" else "Som: on")
+                Text(if (muted) t(lang, Key.SOUND_OFF) else t(lang, Key.SOUND_ON))
             }
         }
     }
