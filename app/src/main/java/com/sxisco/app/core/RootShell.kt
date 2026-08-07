@@ -4,15 +4,6 @@ import java.io.BufferedReader
 import java.io.DataOutputStream
 import java.io.InputStreamReader
 
-/**
- * Sessao persistente de root: abre UM processo "su" e mantem stdin/stdout
- * abertos, entao cada exec() roda no MESMO shell (cd, variaveis etc
- * continuam validos entre chamadas, igual um terminal raiz de verdade).
- *
- * Exige o aparelho ter root (Magisk/KernelSU/etc). Na primeira chamada
- * de start(), o gerenciador de superusuario mostra o popup de permissao
- * pro usuario aceitar.
- */
 class RootShell {
 
     private var process: Process? = null
@@ -22,7 +13,6 @@ class RootShell {
     val isActive: Boolean
         get() = process != null
 
-    /** Abre a sessao su. Retorna false se root foi negado ou nao existe su. */
     fun start(): Boolean {
         return try {
             val proc = Runtime.getRuntime().exec("su")
@@ -30,13 +20,27 @@ class RootShell {
             stdout = BufferedReader(InputStreamReader(proc.inputStream))
             process = proc
 
-            // se o su foi negado, o processo normalmente morre aqui;
-            // esse echo confirma que a sessao esta viva e respondendo
             val check = exec("echo sxisco_root_ok")
             if (!check.contains("sxisco_root_ok")) {
                 close()
                 return false
             }
+
+            // procura um busybox de verdade (Magisk, KernelSU, instalacao
+            // manual) e coloca ele na frente do PATH - sem isso o shell
+            // padrao do Android (toybox) so tem uns 20-30 comandos
+            exec(
+                """
+                for bb in /data/adb/magisk/busybox /data/adb/ksu/bin/busybox /data/adb/ap/bin/busybox /system/xbin/busybox /system/bin/busybox; do
+                    if [ -x "${'$'}bb" ]; then
+                        export PATH="${'$'}(dirname ${'$'}bb)":${'$'}PATH
+                        alias ls='busybox ls' 2>/dev/null
+                        break
+                    fi
+                done
+                """.trimIndent()
+            )
+
             true
         } catch (e: Exception) {
             close()
@@ -44,10 +48,6 @@ class RootShell {
         }
     }
 
-    /**
-     * Roda um comando na sessao root ativa e devolve tudo que ele
-     * imprimiu. Bloqueante — chame sempre fora da thread principal.
-     */
     fun exec(command: String): String {
         val input = stdin ?: return "erro: sessao root nao iniciada"
         val output = stdout ?: return "erro: sessao root nao iniciada"
