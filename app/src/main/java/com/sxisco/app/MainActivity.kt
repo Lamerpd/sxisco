@@ -23,6 +23,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.sxisco.app.core.BackgroundMusicPlayer
 import com.sxisco.app.core.ProcessScanner
 import com.sxisco.app.core.RootShell
 import com.sxisco.app.data.RunningProcess
@@ -37,17 +38,18 @@ import kotlinx.coroutines.withContext
 
 class MainActivity : ComponentActivity() {
 
-    // sessao root vive no nivel da Activity - fica aberta enquanto o
-    // app estiver rodando, todas as telas usam a mesma sessao
     private val rootShell = RootShell()
+    private lateinit var musicPlayer: BackgroundMusicPlayer
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        musicPlayer = BackgroundMusicPlayer(this, R.raw.background_music)
+        musicPlayer.start()
         setContent {
             SxiscoTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
-                    SxiscoApp(shell = rootShell)
+                    SxiscoApp(shell = rootShell, musicPlayer = musicPlayer)
                 }
             }
         }
@@ -55,6 +57,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onDestroy() {
         rootShell.close()
+        musicPlayer.release()
         super.onDestroy()
     }
 }
@@ -62,13 +65,14 @@ class MainActivity : ComponentActivity() {
 private enum class Tab { HOME, PACKAGES, SETTINGS }
 
 @Composable
-fun SxiscoApp(shell: RootShell) {
+fun SxiscoApp(shell: RootShell, musicPlayer: BackgroundMusicPlayer) {
     var rootGranted by remember { mutableStateOf(false) }
     var rootChecked by remember { mutableStateOf(false) }
     var loading by remember { mutableStateOf(false) }
     var processes by remember { mutableStateOf<List<RunningProcess>>(emptyList()) }
     var selectedProcess by remember { mutableStateOf<RunningProcess?>(null) }
     var tab by remember { mutableStateOf(Tab.HOME) }
+    var muted by remember { mutableStateOf(musicPlayer.isMuted) }
 
     val scope = rememberCoroutineScope()
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -135,6 +139,12 @@ fun SxiscoApp(shell: RootShell) {
             }
             TextButton(onClick = { tab = Tab.SETTINGS }, modifier = Modifier.weight(1f)) {
                 Text("Ajustes")
+            }
+            TextButton(onClick = {
+                musicPlayer.toggleMute()
+                muted = musicPlayer.isMuted
+            }) {
+                Text(if (muted) "Som: off" else "Som: on")
             }
         }
     }
